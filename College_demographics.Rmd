@@ -1,0 +1,103 @@
+---
+title: "College_demographics"
+author: "KAM"
+date: "11/5/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+library(FactoMineR)
+library(ggplot2)
+library(ggrepel)
+```
+
+```{r Demographics}
+# https://nces.ed.gov/globallocator/index.asp?search=1&State=&city=&zipcode=&miles=&itemname=Delaware&sortby=name&College=1&Status=Search+Finished&Records=0&CS=6C6D490
+
+combined_frame1 <- data.frame("school" = c(),"enrollment" = c(),"undergrads" = c(),"male" = c(),"female" = c(),"native" = c(),"asian" = c(),"black" = c(),"hispanic" = c(),"islander" = c(),"white" = c(),"mixed" = c(),"unknown" = c(),"alien" = c())
+combined_frame2 <- data.frame("V1" = c(),"V2" = c())
+
+directory <- getwd()
+setwd(paste(directory,"/data",sep=""))
+
+files <- list.files(path = ".",pattern = "*.txt")
+for (i in 1:length(files)){
+  temp <- read.delim(files[i], sep = "\t", header = FALSE, stringsAsFactors = FALSE)
+  ## Putting it in data.frame format
+  temp2 <- data.frame(t(c(substr(files[i], 1, nchar(files[i])-4),temp$V2)))
+  colnames(temp2) <- c("school","enrollment","undergrads","male","female","native","asian","black","hispanic","islander","white","mixed","unknown","alien")
+  combined_frame1 <- rbind(combined_frame1, temp2)
+  ## Putting it in melted format
+  temp2<- temp
+  temp2$school <- substr(files[i], 1, nchar(files)-4)
+  combined_frame2 <- rbind(combined_frame2, temp2)
+}
+
+combined_frame3 <- as.matrix(combined_frame1)
+
+for(x in 2:3){
+  for(y in 1:nrow(combined_frame3)){
+    combined_frame3[y,x] <- as.numeric(gsub(",","",combined_frame3[y,x]))
+  }
+}
+
+for(x in 4:ncol(combined_frame3)){
+  for(y in 1:nrow(combined_frame3)){
+    combined_frame3[y,x] <- as.numeric(gsub("%","",combined_frame3[y,x]))
+  }
+}
+
+combined_frame4 <- data.frame(as.matrix(combined_frame3[,6:12]))
+for(x in 1:ncol(combined_frame4)){combined_frame4[,x] <- as.numeric(as.character(combined_frame4[,x]))}
+combined_frame4 <- combined_frame4 / rowSums(combined_frame4)
+combined_frame4$school <- combined_frame1$school
+```
+
+```{r Export and import}
+college_key <- read.delim(file = "keys/college_key.tsv", header = FALSE, stringsAsFactors = FALSE)
+colnames(college_key) <- c("school","state","area")
+combined_frame4b <- merge(combined_frame4, college_key, by = "school", all.x = TRUE)
+
+write.table(file = "output/college_export.tsv", combined_frame4b[is.na(combined_frame4b$area),1], sep = "", row.names = FALSE, col.names = FALSE, quote = FALSE)
+            
+combined_frame4 <- merge(combined_frame4, college_key, by = "school")
+```
+
+
+
+```{r PCA this data}
+no_hawaii <- combined_frame4
+pca4 = prcomp(no_hawaii[2:8], scale. = TRUE)
+
+# create data frame with scores
+scores = as.data.frame(pca4$x)
+scores$school <- no_hawaii$school
+rownames(scores) <- scores$school
+scores <- merge(scores, college_key, by = "school")
+scores$school <- as.character(scores$school)
+
+scores[scores$school == "UH","PC1"] <- -4
+scores[scores$school == "UH","school"] <- "UH (off scale)"
+scores[scores$school == "Howard","PC2"] <- 2
+scores[scores$school == "Howard","school"] <- "Howard (off scale)"
+scores[scores$school == "Morehouse","PC2"] <- 2
+scores[scores$school == "Morehouse","school"] <- "Morehouse (off scale)"
+
+College_demographics_plot <- ggplot() + 
+  xlab(paste("Principal component 1 (",round(summary(pca4)$importance[2] * 100,0),"% of variance explained)",sep="")) + 
+  ylab(paste("Principal component 2 (",round(summary(pca4)$importance[5] * 100,0),"% of variance explained)",sep="")) + 
+  theme(panel.background = element_blank(), panel.grid.major = element_line("grey99"), legend.position = "none") +
+  geom_hline(yintercept = 0, colour = "gray65") +
+  geom_vline(xintercept = 0, colour = "gray65") +
+  geom_text_repel(data = scores, aes(x = PC1, y = PC2, label = school), segment.color = 'grey90', point.padding = 0.05, size = 1.5, segment.alpha = 0.5, color = "red") +
+  geom_point(data = scores, aes(x = PC1, y = PC2, color = area), size = 1) +
+  geom_point(data = subset(scores, school == "USA"), aes(x = PC1, y = PC2, color = area), size = 2)
+College_demographics_plot
+ggsave(file = "output/College_demographics_plot.png", College_demographics_plot, height= 6, width = 8)
+
+# Explanation of variance explained
+# https://stats.stackexchange.com/questions/22569/pca-and-proportion-of-variance-explained
+# https://stats.stackexchange.com/questions/254592/calculating-pca-variance-explained/254598
+```

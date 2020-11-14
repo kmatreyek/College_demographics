@@ -1,0 +1,13 @@
+Total enrollment:	9,392
+Undergraduate enrollment:	6,354
+      Men:	31.2%
+      Women:	68.8%
+      American Indian or Alaskan Native:	0.1%
+      Asian:	0.9%
+      Black or African American:	89.4%
+      Hispanic/Latino:	0.7%
+      Native Hawaiian or other Pacific Islander:	0.3%
+      White:	1.5%
+      Two or more races:	0%
+      Race/ethnicity unknown:	0%
+      Non-resident alien:	7.1%
